@@ -130,6 +130,11 @@ def clean(df: pd.DataFrame) -> pd.DataFrame:
     for col in feature_cols:
         df[col] = pd.to_numeric(df[col], errors="coerce")
 
+    for col in CATEGORICAL_COLS:
+        if col in df.columns:
+            df[col] = df[col].astype(str).str.strip()
+            df.loc[df[col] == "0.0", col] = "0"
+
     df = clean_infinities(df)
     df = drop_duplicates(df)
     return df
