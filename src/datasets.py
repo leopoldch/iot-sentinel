@@ -8,11 +8,13 @@ DATA_DIR = Path(__file__).resolve().parent.parent / "data" / "processed"
 AVAILABLE = {
     "edge_iiotset": DATA_DIR / "edge_iiotset",
     "ciciot2023": DATA_DIR / "ciciot2023",
+    "ton_iot": DATA_DIR / "ton_iot",
 }
 
 PREPROCESSORS = {
     "edge_iiotset": "src.preprocessing.edge_iiotset",
     "ciciot2023": "src.preprocessing.ciciot2023",
+    "ton_iot": "src.preprocessing.ton_iot",
 }
 
 
