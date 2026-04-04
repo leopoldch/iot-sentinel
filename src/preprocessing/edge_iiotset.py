@@ -3,14 +3,19 @@ from pathlib import Path
 import pandas as pd
 
 from .common import (
+    build_metadata,
     clean_infinities,
-    drop_duplicates,
-    encode_categoricals,
+    drop_conflicting_rows,
+    encode_labels,
+    encode_onehot,
     export_splits,
+    proportional_rates,
+    remove_overlaps,
     scale_features,
     split_data,
     validate_output,
 )
+from .taxonomy import map_edge_family
 
 DATA_DIR = Path(__file__).resolve().parents[2] / "data"
 RAW_PATH = (
@@ -22,8 +27,9 @@ RAW_PATH = (
 )
 OUTPUT_DIR = DATA_DIR / "processed" / "edge_iiotset"
 
-DEFAULT_SAMPLE_N = 500_000
+SAMPLE_N = 500_000
 CHUNK_SIZE = 100_000
+RANDOM_STATE = 42
 
 COLS_TO_DROP = [
     "frame.time",
@@ -45,14 +51,10 @@ COLS_TO_DROP = [
     "dns.qry.name",
 ]
 
-def _usecols() -> list[str] | None:
-    header = pd.read_csv(RAW_PATH, nrows=0).columns.tolist()
-    return [c for c in header if c not in COLS_TO_DROP]
-
-
 TARGET_BINARY = "Attack_label"
 TARGET_MULTI = "Attack_type"
-TARGET_COLS = [TARGET_BINARY, TARGET_MULTI]
+TARGET_FAMILY = "label_family"
+TARGET_COLS = [TARGET_BINARY, TARGET_MULTI, TARGET_FAMILY]
 
 CATEGORICAL_COLS = [
     "http.request.method",
@@ -63,70 +65,48 @@ CATEGORICAL_COLS = [
 ]
 
 
-def _count_labels() -> dict[str, int]:
-    counts: dict[str, int] = {}
+def load(sample_n=SAMPLE_N, full=False):
+    header = pd.read_csv(RAW_PATH, nrows=0).columns.tolist()
+    usecols = [c for c in header if c not in COLS_TO_DROP]
+
+    if full:
+        return pd.read_csv(RAW_PATH, usecols=usecols, low_memory=False)
+
+    counts = {}
     for chunk in pd.read_csv(RAW_PATH, usecols=[TARGET_MULTI], chunksize=CHUNK_SIZE):
         for label, n in chunk[TARGET_MULTI].value_counts().items():
             counts[label] = counts.get(label, 0) + n
-    return counts
 
+    rates = proportional_rates(counts, sample_n)
 
-def _load_sampled(sample_n: int) -> pd.DataFrame:
-    label_counts = _count_labels()
-    total = sum(label_counts.values())
-
-    quotas = {
-        label: max(1, int(sample_n * count / total))
-        for label, count in label_counts.items()
-    }
-    filled: dict[str, int] = {label: 0 for label in quotas}
-    collected: list[pd.DataFrame] = []
-
-    usecols = _usecols()
-
+    parts = []
     for chunk in pd.read_csv(
         RAW_PATH, usecols=usecols, chunksize=CHUNK_SIZE, low_memory=False
     ):
         for label, group in chunk.groupby(TARGET_MULTI):
-            if label not in quotas:
+            if label not in rates:
                 continue
-            remaining = quotas[label] - filled[label]
-            if remaining <= 0:
-                continue
-            if len(group) <= remaining:
-                collected.append(group)
-                filled[label] += len(group)
+            if rates[label] >= 1.0:
+                parts.append(group)
             else:
-                collected.append(group.sample(n=remaining, random_state=42))
-                filled[label] += remaining
+                n = max(1, int(len(group) * rates[label]))
+                parts.append(group.sample(n=n, random_state=RANDOM_STATE))
 
-        if all(filled[l] >= quotas[l] for l in quotas):
-            break
-
-    df = pd.concat(collected, ignore_index=True)
-    df = df.sample(frac=1, random_state=42).reset_index(drop=True)
-    return df
+    df = pd.concat(parts, ignore_index=True)
+    return df.sample(frac=1, random_state=RANDOM_STATE).reset_index(drop=True)
 
 
-def _load_full() -> pd.DataFrame:
-    usecols = _usecols()
-    df = pd.read_csv(RAW_PATH, usecols=usecols, low_memory=False)
-    return df
+def run(sample_n=SAMPLE_N, full=False, encoding="onehot"):
+    df = load(sample_n=sample_n, full=full)
+    df[TARGET_FAMILY] = df[TARGET_MULTI].map(map_edge_family)
 
-
-def load(sample_n: int | None = DEFAULT_SAMPLE_N, full: bool = False) -> pd.DataFrame:
-    if full:
-        return _load_full()
-    else:
-        return _load_sampled(sample_n)
-
-
-def clean(df: pd.DataFrame) -> pd.DataFrame:
     existing_drops = [c for c in COLS_TO_DROP if c in df.columns]
     if existing_drops:
         df = df.drop(columns=existing_drops)
 
-    feature_cols = [c for c in df.columns if c not in TARGET_COLS + CATEGORICAL_COLS]
+    feature_cols = [
+        c for c in df.columns if c not in TARGET_COLS and c not in CATEGORICAL_COLS
+    ]
     for col in feature_cols:
         df[col] = pd.to_numeric(df[col], errors="coerce")
 
@@ -135,53 +115,50 @@ def clean(df: pd.DataFrame) -> pd.DataFrame:
             df[col] = df[col].astype(str).str.strip()
             df.loc[df[col] == "0.0", col] = "0"
 
-    df = clean_infinities(df)
-    df = drop_duplicates(df)
-    return df
+    df = clean_infinities(df.drop_duplicates())
 
-
-def get_feature_cols(df: pd.DataFrame) -> list[str]:
-    return [c for c in df.columns if c not in TARGET_COLS]
-
-
-def run(sample_n: int | None = DEFAULT_SAMPLE_N, full: bool = False):
-    """Full preprocessing pipeline for Edge-IIoTset"""
-    
-    if full:
-        df = load(full=True)
-    else:
-        df = load(sample_n=sample_n)
-
-    df = clean(df)
+    feature_cols_pre = [c for c in df.columns if c not in TARGET_COLS]
+    df = drop_conflicting_rows(df, feature_cols_pre, TARGET_COLS)
 
     train, val, test = split_data(df, label_col=TARGET_BINARY)
+    train, val, test = remove_overlaps(train, val, test, feature_cols_pre)
 
-    cat_cols_present = [c for c in CATEGORICAL_COLS if c in train.columns]
-    train, val, test, encoders = encode_categoricals(train, val, test, cat_cols_present)
+    cat_cols = [c for c in CATEGORICAL_COLS if c in train.columns]
+    if encoding == "onehot":
+        train, val, test, encoding_details = encode_onehot(train, val, test, cat_cols)
+        metadata_key = "onehot_columns"
+    else:
+        train, val, test, encoding_details = encode_labels(train, val, test, cat_cols)
+        metadata_key = "categorical_encoders"
 
-    feature_cols = get_feature_cols(train)
+    feature_cols = [c for c in train.columns if c not in TARGET_COLS]
     train, val, test, scaler_params = scale_features(train, val, test, feature_cols)
+    train, val, test = remove_overlaps(train, val, test, feature_cols)
 
-    metadata = {
-        "dataset": "Edge-IIoTset",
-        "source_file": str(RAW_PATH),
-        "sampling_mode": "full" if full else "label_aware_chunked",
-        "sample_target": "all" if full else sample_n,
-        "n_rows_original": 2219201,
-        "n_rows_after_cleaning": len(train) + len(val) + len(test),
-        "default_target": "binary",
-        "target_binary": TARGET_BINARY,
-        "target_multiclass": TARGET_MULTI,
-        "feature_columns": feature_cols,
-        "categorical_columns": cat_cols_present,
-        "dropped_columns": COLS_TO_DROP,
-        "categorical_encoders": encoders,
-        "scaler": scaler_params,
-        "binary_mapping": {"0": "Normal", "1": "Attack"},
-        "split_ratio": "70/15/15",
-    }
+    metadata = build_metadata(
+        dataset="Edge-IIoTset",
+        feature_cols=feature_cols,
+        target_binary=TARGET_BINARY,
+        target_multiclass=TARGET_MULTI,
+        target_family=TARGET_FAMILY,
+        train=train,
+        val=val,
+        test=test,
+        scaler_params=scaler_params,
+        binary_mapping={"0": "Normal", "1": "Attack"},
+        categorical_columns=cat_cols,
+        dropped_columns=COLS_TO_DROP,
+        encoding_method=encoding,
+        extra={
+            "source_file": str(RAW_PATH),
+            "sampling_mode": "full" if full else "label_aware_chunked",
+            "sample_target": "all" if full else sample_n,
+            "n_rows_original": 2219201,
+            "n_rows_after_cleaning": len(train) + len(val) + len(test),
+        },
+    )
+    metadata[metadata_key] = encoding_details
 
     export_splits(train, val, test, OUTPUT_DIR, metadata)
-    validate_output(OUTPUT_DIR, feature_cols, TARGET_COLS)
-
+    validate_output(OUTPUT_DIR, feature_cols, TARGET_COLS, metadata)
     return OUTPUT_DIR

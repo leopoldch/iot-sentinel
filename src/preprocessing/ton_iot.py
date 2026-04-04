@@ -1,16 +1,20 @@
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 
 from .common import (
-    clean_infinities,
-    drop_duplicates,
-    encode_categoricals,
+    build_metadata,
+    drop_conflicting_rows,
+    encode_labels,
+    encode_onehot,
     export_splits,
+    remove_overlaps,
     scale_features,
     split_data,
     validate_output,
 )
+from .taxonomy import map_ton_family
 
 DATA_DIR = Path(__file__).resolve().parents[2] / "data"
 RAW_DIR = DATA_DIR / "ton_iot" / "processed_iot"
@@ -20,89 +24,70 @@ TARGET_LABEL = "label"
 TARGET_TYPE = "type"
 TARGET_BINARY = "label_binary"
 TARGET_MULTI = "label_multi"
-TARGET_COLS = [TARGET_BINARY, TARGET_MULTI]
+TARGET_FAMILY = "label_family"
+TARGET_COLS = [TARGET_BINARY, TARGET_MULTI, TARGET_FAMILY]
 
-DEFAULT_SAMPLE_N = 1_000_000
+SAMPLE_N = 1_000_000
+RANDOM_STATE = 42
 
 
-def _get_csv_files() -> list[Path]:
+def get_csv_files():
     return sorted(RAW_DIR.glob("IoT_*.csv"))
 
 
-def _device_name(path: Path) -> str:
-    return path.stem.removeprefix("IoT_").lower()
-
-
-def _normalize_strings(df: pd.DataFrame) -> pd.DataFrame:
-    for col in df.columns:
-        if pd.api.types.is_string_dtype(df[col]) or pd.api.types.is_object_dtype(df[col]):
-            df[col] = df[col].astype("string").str.strip()
-            df.loc[df[col].isin(["", "nan", "None", "<NA>"]), col] = pd.NA
-    return df
-
-
-def _load_full() -> pd.DataFrame:
-    parts: list[pd.DataFrame] = []
-
-    for csv_path in _get_csv_files():
-        df = pd.read_csv(csv_path, low_memory=False)
+def load(sample_n=SAMPLE_N, full=False):
+    parts = []
+    for path in get_csv_files():
+        df = pd.read_csv(path, low_memory=False)
         df.columns = [col.strip().replace("\ufeff", "") for col in df.columns]
-        df["device"] = _device_name(csv_path)
+        df["device"] = path.stem.removeprefix("IoT_").lower()
         parts.append(df)
+    df = pd.concat(parts, ignore_index=True)
 
-    return pd.concat(parts, ignore_index=True)
-
-
-def _sample_label_aware(df: pd.DataFrame, sample_n: int) -> pd.DataFrame:
-    if sample_n is None or len(df) <= sample_n:
+    if full or sample_n is None or len(df) <= sample_n:
         return df
 
-    label_counts = df[TARGET_TYPE].astype(str).str.strip().value_counts()
+    labels = df[TARGET_TYPE].astype(str).str.strip()
+    label_counts = labels.value_counts()
     total = int(label_counts.sum())
 
-    parts: list[pd.DataFrame] = []
+    sampled = []
     for label, count in label_counts.items():
         quota = max(1, int(sample_n * count / total))
-        group = df[df[TARGET_TYPE].astype(str).str.strip() == label]
+        group = df[labels == label]
         if len(group) <= quota:
-            parts.append(group)
+            sampled.append(group)
         else:
-            parts.append(group.sample(n=quota, random_state=42))
+            sampled.append(group.sample(n=quota, random_state=RANDOM_STATE))
 
-    sampled = pd.concat(parts, ignore_index=True)
-    sampled = sampled.sample(frac=1, random_state=42).reset_index(drop=True)
-    return sampled
-
-
-def load(sample_n: int | None = DEFAULT_SAMPLE_N, full: bool = False) -> pd.DataFrame:
-    df = _load_full()
-    if full:
-        return df
-    return _sample_label_aware(df, sample_n)
+    result = pd.concat(sampled, ignore_index=True)
+    return result.sample(frac=1, random_state=RANDOM_STATE).reset_index(drop=True)
 
 
-def build_targets(df: pd.DataFrame) -> pd.DataFrame:
+def run(sample_n=SAMPLE_N, full=False, encoding="onehot"):
+    df = load(sample_n=sample_n, full=full)
+    n_rows_before = len(df)
     df[TARGET_BINARY] = pd.to_numeric(df[TARGET_LABEL], errors="coerce").astype(int)
     df[TARGET_MULTI] = df[TARGET_TYPE].astype(str).str.strip().str.lower()
-    return df
+    df[TARGET_FAMILY] = df[TARGET_MULTI].map(map_ton_family)
 
+    for col in df.columns:
+        if pd.api.types.is_string_dtype(df[col]) or pd.api.types.is_object_dtype(
+            df[col]
+        ):
+            df[col] = df[col].astype("string").str.strip()
+            df.loc[df[col].isin(["", "nan", "None", "<NA>"]), col] = pd.NA
 
-def clean(df: pd.DataFrame) -> tuple[pd.DataFrame, list[str]]:
-    df = _normalize_strings(df)
-
+    date_text = df["date"].astype(str).str.replace(r"\s+", " ", regex=True).str.strip()
+    time_text = df["time"].astype(str).str.replace(r"\s+", " ", regex=True).str.strip()
     dt = pd.to_datetime(
-        df["date"].astype(str).str.replace(r"\s+", " ", regex=True).str.strip()
-        + " "
-        + df["time"].astype(str).str.replace(r"\s+", " ", regex=True).str.strip(),
-        format="%d-%b-%y %H:%M:%S",
-        errors="coerce",
+        date_text + " " + time_text, format="%d-%b-%y %H:%M:%S", errors="coerce"
     )
     df["month"] = dt.dt.month
     df["day"] = dt.dt.day
     df["hour"] = dt.dt.hour
     df["minute"] = dt.dt.minute
     df["second"] = dt.dt.second
-
     df = df.drop(columns=["date", "time", TARGET_LABEL, TARGET_TYPE])
 
     categorical_cols = [
@@ -110,69 +95,73 @@ def clean(df: pd.DataFrame) -> tuple[pd.DataFrame, list[str]]:
         for col in df.columns
         if col not in TARGET_COLS and not pd.api.types.is_numeric_dtype(df[col])
     ]
+    numeric_cols = [
+        col
+        for col in df.columns
+        if col not in TARGET_COLS and col not in categorical_cols
+    ]
 
-    numeric_cols = [col for col in df.columns if col not in TARGET_COLS + categorical_cols]
     for col in numeric_cols:
         df[col] = pd.to_numeric(df[col], errors="coerce")
-
-    for col in numeric_cols:
-        df[col] = df[col].fillna(df[col].median())
-
     for col in categorical_cols:
         df[col] = df[col].fillna("__missing__")
 
-    df = clean_infinities(df)
-    df = drop_duplicates(df)
-    return df, categorical_cols
+    df = df.replace([np.inf, -np.inf], np.nan).drop_duplicates()
 
-
-def get_feature_cols(df: pd.DataFrame) -> list[str]:
-    return [col for col in df.columns if col not in TARGET_COLS]
-
-
-def run(sample_n: int | None = DEFAULT_SAMPLE_N, full: bool = False):
-    if full:
-        df = load(full=True)
-        sampling_mode = "full"
-        sample_target = "all"
-    else:
-        df = load(sample_n=sample_n)
-        sampling_mode = "label_aware_full_load"
-        sample_target = sample_n
-
-    n_rows_before_cleaning = len(df)
-
-    df = build_targets(df)
-    df, categorical_cols = clean(df)
+    feature_cols_pre = [col for col in df.columns if col not in TARGET_COLS]
+    df = drop_conflicting_rows(df, feature_cols_pre, TARGET_COLS)
 
     train, val, test = split_data(df, label_col=TARGET_BINARY)
 
-    train, val, test, encoders = encode_categoricals(train, val, test, categorical_cols)
+    medians = train[numeric_cols].median()
+    for split_df in (train, val, test):
+        split_df[numeric_cols] = split_df[numeric_cols].fillna(medians)
+    train = train.dropna(subset=numeric_cols).reset_index(drop=True)
+    val = val.dropna(subset=numeric_cols).reset_index(drop=True)
+    test = test.dropna(subset=numeric_cols).reset_index(drop=True)
 
-    feature_cols = get_feature_cols(train)
+    train, val, test = remove_overlaps(train, val, test, feature_cols_pre)
+
+    if encoding == "onehot":
+        train, val, test, encoding_details = encode_onehot(
+            train, val, test, categorical_cols
+        )
+        metadata_key = "onehot_columns"
+    else:
+        train, val, test, encoding_details = encode_labels(
+            train, val, test, categorical_cols
+        )
+        metadata_key = "categorical_encoders"
+
+    feature_cols = [col for col in train.columns if col not in TARGET_COLS]
     train, val, test, scaler_params = scale_features(train, val, test, feature_cols)
+    train, val, test = remove_overlaps(train, val, test, feature_cols)
 
-    metadata = {
-        "dataset": "TON-IoT",
-        "source_dir": str(RAW_DIR),
-        "source_files": [p.name for p in _get_csv_files()],
-        "sampling_mode": sampling_mode,
-        "sample_target": sample_target,
-        "n_rows_before_cleaning": n_rows_before_cleaning,
-        "n_rows_after_cleaning": len(train) + len(val) + len(test),
-        "default_target": "binary",
-        "target_binary": TARGET_BINARY,
-        "target_multiclass": TARGET_MULTI,
-        "feature_columns": feature_cols,
-        "categorical_columns": categorical_cols,
-        "dropped_columns": ["date", "time", TARGET_LABEL, TARGET_TYPE],
-        "categorical_encoders": encoders,
-        "scaler": scaler_params,
-        "binary_mapping": {"0": "Normal", "1": "Attack"},
-        "split_ratio": "70/15/15",
-    }
+    metadata = build_metadata(
+        dataset="TON-IoT",
+        feature_cols=feature_cols,
+        target_binary=TARGET_BINARY,
+        target_multiclass=TARGET_MULTI,
+        target_family=TARGET_FAMILY,
+        train=train,
+        val=val,
+        test=test,
+        scaler_params=scaler_params,
+        binary_mapping={"0": "Normal", "1": "Attack"},
+        categorical_columns=categorical_cols,
+        dropped_columns=["date", "time", TARGET_LABEL, TARGET_TYPE],
+        encoding_method=encoding,
+        extra={
+            "source_dir": str(RAW_DIR),
+            "source_files": [p.name for p in get_csv_files()],
+            "sampling_mode": "full" if full else "label_aware_full_load",
+            "sample_target": "all" if full else sample_n,
+            "n_rows_before_cleaning": n_rows_before,
+            "n_rows_after_cleaning": len(train) + len(val) + len(test),
+        },
+    )
+    metadata[metadata_key] = encoding_details
 
     export_splits(train, val, test, OUTPUT_DIR, metadata)
-    validate_output(OUTPUT_DIR, feature_cols, TARGET_COLS)
-
+    validate_output(OUTPUT_DIR, feature_cols, TARGET_COLS, metadata)
     return OUTPUT_DIR

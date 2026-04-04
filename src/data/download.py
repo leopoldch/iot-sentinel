@@ -1,5 +1,6 @@
 import shutil
 from pathlib import Path
+
 import kagglehub
 from dotenv import find_dotenv, load_dotenv
 
@@ -10,6 +11,7 @@ DATA_DIR = Path(__file__).resolve().parents[2] / "data"
 DATASETS = {
     "ciciot2023": "mdabdulalemo/cic-iot-dataset2023-updated-2024-10-08",
     "edge-iiotset": "mohamedamineferrag/edgeiiotset-cyber-security-dataset-of-iot-iiot",
+    "ton_iot": "dhoogla/toniot",
 }
 
 def download_all():
