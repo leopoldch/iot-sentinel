@@ -61,11 +61,14 @@ def run(train, val, test, meta):
     test_metrics = compute_metrics(y_true, y_pred, y_prob)
     print_metrics("TEST", test_metrics)
 
-    del best_clf, val_probs, y_prob, y_pred, X_val, y_val, X_test, y_true
+    del best_clf, val_probs, y_prob, y_pred, X_val, y_val, y_true
     gc.collect()
 
     target_multi = meta["target_multiclass"]
-    class_names = sorted(train[target_multi].astype(str).unique())
+    class_names = sorted(
+        set(train[target_multi].astype(str).unique())
+        | set(test[target_multi].astype(str).unique())
+    )
 
     multi_clf = build_model(**DEFAULT_PARAMS)
     multi_clf.fit(X_train, train[target_multi].astype(str))

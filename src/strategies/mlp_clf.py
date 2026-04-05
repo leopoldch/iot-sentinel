@@ -61,7 +61,10 @@ def run(train, val, test, meta):
     print_metrics("TEST", test_metrics)
 
     target_multi = meta["target_multiclass"]
-    class_names = sorted(train[target_multi].astype(str).unique())
+    class_names = sorted(
+        set(train[target_multi].astype(str).unique())
+        | set(test[target_multi].astype(str).unique())
+    )
 
     le = LabelEncoder()
     le.fit(class_names)

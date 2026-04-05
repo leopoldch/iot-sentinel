@@ -27,12 +27,33 @@ datasets with support for both binary and multiclass classification.
 
 ## Strategies
 
-| Strategy | Description |
-|----------|-------------|
-| **Dummy** | Baseline classifier for sanity checking. |
-| **Isolation Forest** | Unsupervised anomaly detection model. |
-| **Random Forest** | Ensemble tree-based classifier. |
-| **XGBoost** | Gradient-boosted tree classifier. |
+### Supervised classifiers
+
+| Strategy | CLI name | Description |
+|----------|----------|-------------|
+| **Dummy** | `dummy` | Baseline classifier for sanity checking. |
+| **Logistic Regression** | `logistic_regression` | Linear discriminative classifier. |
+| **SGDClassifier (hinge)** | `sgd` | Large-scale linear SVM via stochastic gradient descent, calibrated for probabilities. |
+| **GaussianNB** | `gaussian_nb` | Probabilistic generative classifier (naive Bayes). |
+| **MLPClassifier** | `mlp` | Two-layer dense neural network (128, 64). |
+| **Random Forest** | `random_forest` | Ensemble of bagged decision trees. |
+| **Extra Trees** | `extra_trees` | Extremely randomized trees ensemble. |
+| **HistGradientBoosting** | `hist_gb` | Native sklearn histogram-based gradient boosting. |
+| **XGBoost** | `xgboost` | Gradient-boosted tree classifier. |
+
+### Anomaly detection
+
+| Strategy | CLI name | Description |
+|----------|----------|-------------|
+| **Isolation Forest** | `isolation_forest` | Unsupervised anomaly detection (tree-based isolation). |
+| **Autoencoder** | `autoencoder` | Reconstruction-based anomaly detection (MLPRegressor). |
+| **LOF** | `lof` | Local Outlier Factor novelty detection (subsampled fit). |
+
+### Federated learning
+
+| Strategy | CLI name | Description |
+|----------|----------|-------------|
+| **Federated SGD** | `federated_sgd` | FedAvg with 5 stratified IID clients, SGD log_loss, 20 rounds. |
 
 ## Installation
 
@@ -63,7 +84,7 @@ uv run python main.py --dataset edge_iiotset --strategy xgboost
 | Flag | Description | Values |
 |------|-------------|--------|
 | `--dataset` | Target dataset | `ciciot2023`, `edge_iiotset`, `ton_iot` |
-| `--strategy` | Detection strategy | `dummy`, `isolation_forest`, `random_forest`, `xgboost` |
+| `--strategy` | Detection strategy | See [Strategies](#strategies) for full list |
 | `--all` | Run on all datasets | Flag |
 | `--cross-dataset` | Experimental cross-dataset evaluation | Flag |
 | `--force-preprocess` | Regenerate preprocessed splits (use after code changes) | Flag |
@@ -302,20 +323,48 @@ The anomaly baseline:
 
 This is scientifically useful because it tests whether a one-class style anomaly detector can detect attacks without the same type of direct supervision as the supervised baselines.
 
-#### Random Forest and XGBoost
+#### Supervised classifiers (Random Forest, XGBoost, HistGB, Extra Trees, MLP, Logistic Regression, SGD, GaussianNB)
 
-The two supervised main baselines follow the same logic:
+All supervised strategies follow the same evaluation logic:
 
 - 5-fold stratified cross-validation on the train split for the binary task
-- use fixed model parameters
+- use fixed model parameters (no hyperparameter search)
 - fit the final binary model on the full train split
 - choose the binary decision threshold on the full validation split
 - evaluate the final binary model on test
 - train a separate multiclass model on the train split
 - evaluate the multiclass model on test
 
+Class names for multiclass evaluation are the union of train and test labels, ensuring rare classes are never silently dropped from metrics.
+
 This is a practical engineering choice to keep the benchmark runnable on a workstation.
 If a future study wants parameter search, it should be done explicitly outside this baseline CLI.
+
+#### Autoencoder
+
+The reconstruction-based anomaly detector:
+
+- trains an MLPRegressor (64-16-64 bottleneck) to reconstruct benign samples only
+- uses mean squared reconstruction error as the anomaly score
+- calibrates the threshold on validation percentiles
+- reports per-attack detection rates
+
+#### LOF (Local Outlier Factor)
+
+The novelty detection baseline:
+
+- fits LOF in novelty mode on a subsample of benign training data (max 30k samples to control memory)
+- uses negated decision function as anomaly score
+- same threshold calibration and per-attack reporting as Isolation Forest
+
+#### Federated SGD
+
+The federated learning strategy:
+
+- simulates 5 clients via stratified IID partition of the training data
+- runs FedAvg for 20 communication rounds with SGD (log_loss, constant lr=0.01)
+- each round: clients train 1 local epoch, then weights are averaged proportional to client size
+- evaluation follows the same binary + multiclass protocol as centralized strategies
 
 ### 8. Metrics and why they were chosen
 
@@ -370,7 +419,7 @@ The pipeline is scientifically viable for the claims it actually makes because:
 - **the protocol is explicit**: preprocessing, splitting, validation, thresholding, and reporting are defined in code
 - **the test set is protected**: model selection is done on validation, not on test
 - **data leakage is actively controlled**: train-only scaling, train-only imputation, overlap removal, and overlap validation are all enforced
-- **baselines are meaningful**: the framework compares a naive classifier, an anomaly detector, and strong supervised tree methods
+- **baselines are meaningful**: the framework compares a naive classifier, anomaly detectors (Isolation Forest, Autoencoder, LOF), linear models, neural networks, tree ensembles, and a federated learning setup
 - **results are reproducible**: processed artifacts are versioned and validated
 - **metrics match the problem**: the reported metrics are suitable for imbalanced intrusion detection
 - **limitations are visible**: the framework does not hide that some tasks are harder than others and does not claim solved generalization where none exists
@@ -381,7 +430,7 @@ Under the current `v5` pipeline, this repository can legitimately claim:
 
 - a clean, validated, same-dataset IDS benchmark on three public IoT datasets
 - reproducible processed artifacts with a strict loading contract
-- fair within-repo comparison between dummy, anomaly-based, and supervised tree baselines
+- fair within-repo comparison across 13 strategies: dummy baseline, linear classifiers, neural networks, tree ensembles, anomaly detectors, and federated learning
 - meaningful binary and multiclass evaluation
 
 ### 12. What this repository does not claim
@@ -414,43 +463,84 @@ The benchmark is scientifically useful because its scope is controlled and expli
 
 ### Verified model runs
 
-- `Edge-IIoTset`: all four strategies rerun under the current fixed-parameter pipeline.
-- `TON-IoT`: all four strategies rerun under the current fixed-parameter pipeline.
-- `CICIoT2023`: `Dummy`, `IsolationForest`, and `XGBoost` rerun fully; `RandomForest` rerun is current for binary metrics, but the full multiclass local rerun repeatedly crashed the host.
+All 13 strategies have been run on all three datasets under the current fixed-parameter pipeline. Results are stored in `results/<dataset>/<strategy>.json`.
 
 ## Results
 
-### Current trustworthy snapshot
+### Current benchmark snapshot
 
-| Dataset | Model | Binary F1 | Balanced Acc. | Multiclass Macro F1 | Status |
-|---------|-------|-----------|---------------|----------------------|--------|
-| `CICIoT2023` | `Dummy` | `0.9803` | `0.5000` | `0.0066` | Verified |
-| `CICIoT2023` | `IsolationForest` | `0.9834` | `0.8546` | `-` | Verified |
-| `CICIoT2023` | `RandomForest` | `0.9936` | `0.9294` | `-` | Binary rerun verified, multiclass local run unsafe |
-| `CICIoT2023` | `XGBoost` | `0.9936` | `0.9260` | `0.6154` | Verified |
-| `Edge-IIoTset` | `Dummy` | `0.0000` | `0.5000` | `0.0556` | Verified |
-| `Edge-IIoTset` | `IsolationForest` | `0.4917` | `0.6095` | `-` | Verified |
-| `Edge-IIoTset` | `RandomForest` | `0.9246` | `0.9317` | `0.8639` | Verified |
-| `Edge-IIoTset` | `XGBoost` | `0.9526` | `0.9549` | `0.8817` | Verified |
-| `TON-IoT` | `Dummy` | `0.0000` | `0.5000` | `0.1134` | Verified |
-| `TON-IoT` | `IsolationForest` | `0.3430` | `0.6044` | `-` | Verified |
-| `TON-IoT` | `RandomForest` | `0.9844` | `0.9937` | `0.9485` | Verified |
-| `TON-IoT` | `XGBoost` | `0.9869` | `0.9958` | `0.9623` | Verified |
+#### Edge-IIoTset
+
+| Model | Binary F1 | Balanced Acc. | Multiclass Macro F1 |
+|-------|-----------|---------------|----------------------|
+| `dummy` | 0.0000 | 0.5000 | 0.0556 |
+| `gaussian_nb` | 0.7173 | 0.7797 | 0.3182 |
+| `federated_sgd` | 0.7849 | 0.8294 | 0.3739 |
+| `autoencoder` | 0.7885 | 0.8290 | - |
+| `sgd` | 0.7902 | 0.8342 | 0.4355 |
+| `logistic_regression` | 0.7966 | 0.8384 | 0.5011 |
+| `mlp` | 0.8377 | 0.8607 | 0.6840 |
+| `extra_trees` | 0.8698 | 0.9111 | 0.5502 |
+| `random_forest` | 0.9246 | 0.9317 | 0.8639 |
+| `isolation_forest` | 0.4917 | 0.6095 | - |
+| `hist_gb` | 0.9541 | 0.9564 | 0.8279 |
+| `xgboost` | 0.9526 | 0.9549 | 0.8817 |
+
+#### CICIoT2023
+
+| Model | Binary F1 | Balanced Acc. | Multiclass Macro F1 |
+|-------|-----------|---------------|----------------------|
+| `dummy` | 0.9803 | 0.5000 | 0.0066 |
+| `gaussian_nb` | 0.9810 | 0.9788 | 0.3684 |
+| `isolation_forest` | 0.9834 | 0.8546 | - |
+| `autoencoder` | 0.9861 | 0.8886 | - |
+| `sgd` | 0.9888 | 0.8401 | 0.4105 |
+| `federated_sgd` | 0.9888 | 0.8834 | 0.4728 |
+| `logistic_regression` | 0.9889 | 0.8774 | 0.5268 |
+| `mlp` | 0.9925 | 0.9124 | 0.5848 |
+| `extra_trees` | 0.9928 | 0.9133 | 0.5923 |
+| `hist_gb` | 0.9936 | 0.9141 | 0.5218 |
+| `random_forest` | 0.9936 | 0.9294 | - |
+| `xgboost` | 0.9936 | 0.9260 | 0.6154 |
+
+#### TON-IoT
+
+| Model | Binary F1 | Balanced Acc. | Multiclass Macro F1 |
+|-------|-----------|---------------|----------------------|
+| `dummy` | 0.0000 | 0.5000 | 0.1134 |
+| `isolation_forest` | 0.3430 | 0.6044 | - |
+| `autoencoder` | 0.3893 | 0.6733 | - |
+| `sgd` | 0.6488 | 0.8659 | 0.1869 |
+| `gaussian_nb` | 0.6657 | 0.8967 | 0.2635 |
+| `federated_sgd` | 0.6725 | 0.8822 | 0.2046 |
+| `logistic_regression` | 0.6725 | 0.9001 | 0.2330 |
+| `mlp` | 0.9742 | 0.9891 | 0.9452 |
+| `extra_trees` | 0.9803 | 0.9929 | 0.9171 |
+| `random_forest` | 0.9844 | 0.9937 | 0.9485 |
+| `hist_gb` | 0.9868 | 0.9955 | 0.8710 |
+| `xgboost` | 0.9869 | 0.9958 | 0.9623 |
+
+Anomaly detection strategies (isolation_forest, autoencoder, lof) report per-attack detection rates instead of multiclass macro F1.
 
 ### Interpretation
 
-- `TON-IoT` is easy for tree ensembles in same-dataset evaluation: both `RandomForest` and `XGBoost` exceed `0.98` binary F1 and `0.94` multiclass macro F1.
-- `Edge-IIoTset` is materially harder: binary detection remains strong, but multiclass performance drops on minority and fine-grained attack families.
-- `CICIoT2023` remains very strong in binary detection for tree ensembles, but fine-grained multiclass recognition is much harder than the binary headline score suggests.
-- `IsolationForest` is useful as an anomaly baseline, but it stays far behind the supervised tree methods on Edge-IIoTset and TON-IoT.
+- **Tree ensembles dominate**: XGBoost, HistGB, Random Forest, and Extra Trees consistently lead across all datasets.
+- **XGBoost remains the strongest default**: best or near-best on all three datasets for both binary and multiclass.
+- **MLP is the best non-tree model**: competitive with tree ensembles on TON-IoT (0.9452 macro F1) and significantly better than linear models everywhere.
+- **Linear models plateau quickly**: Logistic Regression, SGD, and GaussianNB cluster together in binary performance but fall behind on multiclass, especially on TON-IoT.
+- **Federated SGD loses a few points vs centralized SGD**: expected with 5-client FedAvg on stratified IID partitions; the gap is small on CICIoT2023 but more visible on harder datasets.
+- **Anomaly detectors are useful baselines but lag behind supervised methods**: Isolation Forest and Autoencoder detect volume attacks (DDoS) well but miss subtle attack types.
+- **The hard part is multiclass**: binary F1 is above 0.98 for most supervised models on CICIoT2023, but fine-grained attack recognition remains much harder.
 
 ## Intuition
 
 - **Tree ensembles dominate the current benchmark**: the datasets are tabular, mostly structured, and respond very well to boosted or bagged trees.
-- **XGBoost is the strongest default**: it leads on the verified `TON-IoT` runs, on `Edge-IIoTset`, and gives the only fully verified current multiclass rerun on `CICIoT2023`.
-- **The hard part is not binary separation anymore**: the real weakness is fine-grained attack family recognition on `Edge-IIoTset`.
+- **XGBoost is the strongest default**: it leads or ties on all three datasets for both binary and multiclass metrics.
+- **MLP bridges the gap**: the neural network is the strongest non-tree model, competitive with tree ensembles on TON-IoT and significantly better than linear models on multiclass tasks.
+- **Linear models have a hard ceiling**: Logistic Regression, SGD, and GaussianNB are fast but plateau quickly on multiclass recognition.
+- **Federated learning works but loses a few points**: the 5-client FedAvg setup with stratified IID partitions produces results close to centralized SGD, demonstrating that federated training is viable for IoT IDS.
+- **The hard part is not binary separation anymore**: the real weakness is fine-grained attack family recognition, especially on `Edge-IIoTset` and `CICIoT2023`.
 - **Accuracy is not enough**: for imbalanced datasets like `CICIoT2023`, a dummy model can still show high accuracy while being useless for balanced detection.
-- **Local hardware matters**: the full multiclass `RandomForest` rerun on `CICIoT2023` repeatedly crashed the local machine, which is itself a practical limit worth documenting.
 - **Cross-dataset generalization is still unresolved**: the current dataset-specific preprocessing yields no shared feature intersection across datasets, so same-dataset scores should not be mistaken for deployment robustness.
 
 

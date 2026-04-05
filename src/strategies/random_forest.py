@@ -63,18 +63,21 @@ def run(train, val, test, meta):
     print_metrics("TEST", test_metrics)
 
     # Free the binary model before training the multiclass forest.
-    del best_clf, val_probs, y_prob, y_pred, X_val, y_val, X_test, y_true
+    del best_clf, val_probs, y_prob, y_pred, X_val, y_val, y_true
     gc.collect()
 
     target_multi = meta["target_multiclass"]
-    class_names = sorted(train[target_multi].astype(str).unique())
+    class_names = sorted(
+        set(train[target_multi].astype(str).unique())
+        | set(test[target_multi].astype(str).unique())
+    )
 
     multi_clf = build_model(n_jobs, **DEFAULT_PARAMS)
     multi_clf.fit(X_train, train[target_multi].astype(str))
 
     multi_metrics = compute_multiclass_metrics(
         test[target_multi].astype(str).values,
-        multi_clf.predict(X_test),
+        multi_clf.predict(test[feature_cols]),
         class_names,
     )
     print_multiclass_metrics("TEST multiclass", multi_metrics)
