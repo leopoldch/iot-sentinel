@@ -1,0 +1,69 @@
+{
+  "strategy": "random_forest",
+  "dataset": "CICIoT2023",
+  "params": {
+    "n_estimators": 200,
+    "max_depth": null,
+    "min_samples_leaf": 1
+  },
+  "best_threshold": 0.55,
+  "cv": {
+    "balanced_accuracy": 0.9192,
+    "f1": 0.9936,
+    "precision": 0.9938,
+    "recall": 0.9933,
+    "roc_auc": 0.9965,
+    "pr_auc": 0.9999,
+    "accuracy": 0.9876,
+    "confusion_matrix": [
+      [
+        27562,
+        5051
+      ],
+      [
+        5415,
+        807037
+      ]
+    ]
+  },
+  "val": {
+    "balanced_accuracy": 0.9312,
+    "f1": 0.9936,
+    "precision": 0.9948,
+    "recall": 0.9924,
+    "roc_auc": 0.9964,
+    "pr_auc": 0.9998,
+    "accuracy": 0.9877,
+    "confusion_matrix": [
+      [
+        6079,
+        909
+      ],
+      [
+        1316,
+        172342
+      ]
+    ]
+  },
+  "test": {
+    "balanced_accuracy": 0.9294,
+    "f1": 0.9936,
+    "precision": 0.9946,
+    "recall": 0.9925,
+    "roc_auc": 0.9966,
+    "pr_auc": 0.9999,
+    "accuracy": 0.9876,
+    "confusion_matrix": [
+      [
+        6054,
+        935
+      ],
+      [
+        1298,
+        172336
+      ]
+    ]
+  },
+  "test_multiclass": null,
+  "note": "Binary rerun metrics are current. The full multiclass RandomForest rerun on CICIoT2023 repeatedly exhausted the local machine and was stopped for host safety."
+}

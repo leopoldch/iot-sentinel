@@ -1,0 +1,110 @@
+{
+  "strategy": "autoencoder",
+  "strategy_type": "anomaly_reconstruction",
+  "dataset": "TON-IoT",
+  "params": {
+    "hidden_layer_sizes": "(64, 16, 64)",
+    "max_iter": 100,
+    "early_stopping": true
+  },
+  "best_threshold": 4.085906084058802e-05,
+  "cv": {
+    "balanced_accuracy": 0.5474,
+    "f1": 0.225,
+    "precision": 0.304,
+    "recall": 0.1786,
+    "roc_auc": 0.6584,
+    "pr_auc": 0.2501,
+    "accuracy": 0.7906,
+    "confusion_matrix": [
+      [
+        444249,
+        40675
+      ],
+      [
+        81711,
+        17766
+      ]
+    ]
+  },
+  "val": {
+    "balanced_accuracy": 0.6747,
+    "f1": 0.3901,
+    "precision": 0.2461,
+    "recall": 0.9399,
+    "roc_auc": 0.6735,
+    "pr_auc": 0.243,
+    "accuracy": 0.4998,
+    "confusion_matrix": [
+      [
+        42549,
+        61363
+      ],
+      [
+        1281,
+        20036
+      ]
+    ]
+  },
+  "test": {
+    "balanced_accuracy": 0.6733,
+    "f1": 0.3893,
+    "precision": 0.2459,
+    "recall": 0.9347,
+    "roc_auc": 0.6728,
+    "pr_auc": 0.2429,
+    "accuracy": 0.5008,
+    "confusion_matrix": [
+      [
+        42795,
+        61117
+      ],
+      [
+        1392,
+        19925
+      ]
+    ]
+  },
+  "per_attack_detection": {
+    "backdoor": {
+      "support": 10090,
+      "detected": 9659,
+      "recall": 0.9573
+    },
+    "ddos": {
+      "support": 2165,
+      "detected": 2001,
+      "recall": 0.9242
+    },
+    "injection": {
+      "support": 2126,
+      "detected": 1796,
+      "recall": 0.8448
+    },
+    "normal": {
+      "support": 103912,
+      "detected": 61117,
+      "recall": 0.5882
+    },
+    "password": {
+      "support": 5898,
+      "detected": 5457,
+      "recall": 0.9252
+    },
+    "ransomware": {
+      "support": 654,
+      "detected": 637,
+      "recall": 0.974
+    },
+    "scanning": {
+      "support": 143,
+      "detected": 137,
+      "recall": 0.958
+    },
+    "xss": {
+      "support": 241,
+      "detected": 238,
+      "recall": 0.9876
+    }
+  }
+}

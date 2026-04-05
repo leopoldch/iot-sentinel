@@ -1,0 +1,215 @@
+{
+  "strategy": "random_forest",
+  "dataset": "TON-IoT",
+  "params": {
+    "n_estimators": 200,
+    "max_depth": null,
+    "min_samples_leaf": 1
+  },
+  "best_threshold": 0.45,
+  "cv": {
+    "balanced_accuracy": 0.9922,
+    "f1": 0.9826,
+    "precision": 0.9758,
+    "recall": 0.9894,
+    "roc_auc": 0.9987,
+    "pr_auc": 0.9912,
+    "accuracy": 0.994,
+    "confusion_matrix": [
+      [
+        482488,
+        2436
+      ],
+      [
+        1059,
+        98418
+      ]
+    ]
+  },
+  "val": {
+    "balanced_accuracy": 0.9939,
+    "f1": 0.9842,
+    "precision": 0.9758,
+    "recall": 0.9928,
+    "roc_auc": 0.9988,
+    "pr_auc": 0.9925,
+    "accuracy": 0.9946,
+    "confusion_matrix": [
+      [
+        103387,
+        525
+      ],
+      [
+        154,
+        21163
+      ]
+    ]
+  },
+  "test": {
+    "balanced_accuracy": 0.9937,
+    "f1": 0.9844,
+    "precision": 0.9765,
+    "recall": 0.9924,
+    "roc_auc": 0.9986,
+    "pr_auc": 0.9912,
+    "accuracy": 0.9946,
+    "confusion_matrix": [
+      [
+        103403,
+        509
+      ],
+      [
+        163,
+        21154
+      ]
+    ]
+  },
+  "test_multiclass": {
+    "balanced_accuracy": 0.9396,
+    "macro_f1": 0.9485,
+    "weighted_f1": 0.9938,
+    "accuracy": 0.9939,
+    "per_class": {
+      "backdoor": {
+        "precision": 0.9719,
+        "recall": 0.9893,
+        "f1": 0.9805,
+        "support": 10090
+      },
+      "ddos": {
+        "precision": 0.9503,
+        "recall": 0.9797,
+        "f1": 0.9647,
+        "support": 2165
+      },
+      "injection": {
+        "precision": 0.9953,
+        "recall": 0.9995,
+        "f1": 0.9974,
+        "support": 2126
+      },
+      "normal": {
+        "precision": 0.9977,
+        "recall": 0.9954,
+        "f1": 0.9965,
+        "support": 103912
+      },
+      "password": {
+        "precision": 0.9876,
+        "recall": 0.9893,
+        "f1": 0.9885,
+        "support": 5898
+      },
+      "ransomware": {
+        "precision": 0.96,
+        "recall": 0.9908,
+        "f1": 0.9752,
+        "support": 654
+      },
+      "scanning": {
+        "precision": 0.8396,
+        "recall": 0.6224,
+        "f1": 0.7149,
+        "support": 143
+      },
+      "xss": {
+        "precision": 0.9913,
+        "recall": 0.9502,
+        "f1": 0.9703,
+        "support": 241
+      }
+    },
+    "confusion_matrix": [
+      [
+        9982,
+        0,
+        0,
+        108,
+        0,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        2121,
+        0,
+        44,
+        0,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        2125,
+        1,
+        0,
+        0,
+        0,
+        0
+      ],
+      [
+        289,
+        111,
+        10,
+        103431,
+        37,
+        27,
+        5,
+        2
+      ],
+      [
+        0,
+        0,
+        0,
+        51,
+        5835,
+        0,
+        12,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        6,
+        0,
+        648,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        18,
+        36,
+        0,
+        89,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        12,
+        0,
+        0,
+        0,
+        229
+      ]
+    ],
+    "class_names": [
+      "backdoor",
+      "ddos",
+      "injection",
+      "normal",
+      "password",
+      "ransomware",
+      "scanning",
+      "xss"
+    ]
+  }
+}

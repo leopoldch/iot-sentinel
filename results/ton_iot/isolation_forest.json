@@ -1,0 +1,109 @@
+{
+  "strategy": "isolation_forest",
+  "strategy_type": "anomaly_baseline",
+  "dataset": "TON-IoT",
+  "params": {
+    "n_estimators": 100,
+    "contamination": 0.1
+  },
+  "best_threshold": -0.02845289518078037,
+  "cv": {
+    "balanced_accuracy": 0.5594,
+    "f1": 0.2565,
+    "precision": 0.3097,
+    "recall": 0.2188,
+    "roc_auc": 0.6361,
+    "pr_auc": 0.2569,
+    "accuracy": 0.784,
+    "confusion_matrix": [
+      [
+        436411,
+        48513
+      ],
+      [
+        77708,
+        21769
+      ]
+    ]
+  },
+  "val": {
+    "balanced_accuracy": 0.6065,
+    "f1": 0.3458,
+    "precision": 0.2906,
+    "recall": 0.4268,
+    "roc_auc": 0.6509,
+    "pr_auc": 0.2669,
+    "accuracy": 0.7251,
+    "confusion_matrix": [
+      [
+        81702,
+        22210
+      ],
+      [
+        12219,
+        9098
+      ]
+    ]
+  },
+  "test": {
+    "balanced_accuracy": 0.6044,
+    "f1": 0.343,
+    "precision": 0.2891,
+    "recall": 0.4214,
+    "roc_auc": 0.6506,
+    "pr_auc": 0.2667,
+    "accuracy": 0.7251,
+    "confusion_matrix": [
+      [
+        81821,
+        22091
+      ],
+      [
+        12333,
+        8984
+      ]
+    ]
+  },
+  "per_attack_detection": {
+    "backdoor": {
+      "support": 10090,
+      "detected": 4118,
+      "recall": 0.4081
+    },
+    "ddos": {
+      "support": 2165,
+      "detected": 1073,
+      "recall": 0.4956
+    },
+    "injection": {
+      "support": 2126,
+      "detected": 739,
+      "recall": 0.3476
+    },
+    "normal": {
+      "support": 103912,
+      "detected": 22091,
+      "recall": 0.2126
+    },
+    "password": {
+      "support": 5898,
+      "detected": 2569,
+      "recall": 0.4356
+    },
+    "ransomware": {
+      "support": 654,
+      "detected": 283,
+      "recall": 0.4327
+    },
+    "scanning": {
+      "support": 143,
+      "detected": 82,
+      "recall": 0.5734
+    },
+    "xss": {
+      "support": 241,
+      "detected": 120,
+      "recall": 0.4979
+    }
+  }
+}

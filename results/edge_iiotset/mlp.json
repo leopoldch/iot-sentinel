@@ -1,0 +1,439 @@
+{
+  "strategy": "mlp",
+  "dataset": "Edge-IIoTset",
+  "params": {
+    "hidden_layer_sizes": "(128, 64)",
+    "max_iter": 300,
+    "early_stopping": true
+  },
+  "best_threshold": 0.4,
+  "cv": {
+    "balanced_accuracy": 0.8594,
+    "f1": 0.8362,
+    "precision": 0.9987,
+    "recall": 0.7192,
+    "roc_auc": 0.9317,
+    "pr_auc": 0.9,
+    "accuracy": 0.9197,
+    "confusion_matrix": [
+      [
+        225861,
+        84
+      ],
+      [
+        25304,
+        64805
+      ]
+    ]
+  },
+  "val": {
+    "balanced_accuracy": 0.8622,
+    "f1": 0.8396,
+    "precision": 0.9965,
+    "recall": 0.7254,
+    "roc_auc": 0.9315,
+    "pr_auc": 0.8994,
+    "accuracy": 0.921,
+    "confusion_matrix": [
+      [
+        48368,
+        49
+      ],
+      [
+        5302,
+        14008
+      ]
+    ]
+  },
+  "test": {
+    "balanced_accuracy": 0.8607,
+    "f1": 0.8377,
+    "precision": 0.997,
+    "recall": 0.7223,
+    "roc_auc": 0.9315,
+    "pr_auc": 0.8993,
+    "accuracy": 0.9202,
+    "confusion_matrix": [
+      [
+        48376,
+        42
+      ],
+      [
+        5362,
+        13947
+      ]
+    ]
+  },
+  "test_multiclass": {
+    "balanced_accuracy": 0.6365,
+    "macro_f1": 0.684,
+    "weighted_f1": 0.888,
+    "accuracy": 0.9115,
+    "per_class": {
+      "Backdoor": {
+        "precision": 0.9673,
+        "recall": 0.8829,
+        "f1": 0.9232,
+        "support": 803
+      },
+      "DDoS_HTTP": {
+        "precision": 0.9696,
+        "recall": 0.3718,
+        "f1": 0.5375,
+        "support": 1544
+      },
+      "DDoS_ICMP": {
+        "precision": 1.0,
+        "recall": 0.9939,
+        "f1": 0.9969,
+        "support": 3452
+      },
+      "DDoS_TCP": {
+        "precision": 0.7945,
+        "recall": 1.0,
+        "f1": 0.8855,
+        "support": 1693
+      },
+      "DDoS_UDP": {
+        "precision": 0.9983,
+        "recall": 1.0,
+        "f1": 0.9992,
+        "support": 4172
+      },
+      "Fingerprinting": {
+        "precision": 0.5,
+        "recall": 0.68,
+        "f1": 0.5763,
+        "support": 25
+      },
+      "MITM": {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0,
+        "support": 14
+      },
+      "Normal": {
+        "precision": 0.901,
+        "recall": 0.9997,
+        "f1": 0.9478,
+        "support": 48418
+      },
+      "Password": {
+        "precision": 0.8555,
+        "recall": 0.1756,
+        "f1": 0.2913,
+        "support": 1686
+      },
+      "Port_Scanning": {
+        "precision": 1.0,
+        "recall": 0.4992,
+        "f1": 0.666,
+        "support": 641
+      },
+      "Ransomware": {
+        "precision": 0.9585,
+        "recall": 0.6865,
+        "f1": 0.8,
+        "support": 303
+      },
+      "SQL_injection": {
+        "precision": 0.9024,
+        "recall": 0.1654,
+        "f1": 0.2796,
+        "support": 1620
+      },
+      "Uploading": {
+        "precision": 0.795,
+        "recall": 0.184,
+        "f1": 0.2989,
+        "support": 1201
+      },
+      "Vulnerability_scanner": {
+        "precision": 0.9963,
+        "recall": 0.8181,
+        "f1": 0.8984,
+        "support": 1660
+      },
+      "XSS": {
+        "precision": 0.6522,
+        "recall": 0.0909,
+        "f1": 0.1596,
+        "support": 495
+      }
+    },
+    "confusion_matrix": [
+      [
+        709,
+        1,
+        0,
+        11,
+        0,
+        0,
+        0,
+        62,
+        6,
+        0,
+        0,
+        0,
+        14,
+        0,
+        0
+      ],
+      [
+        11,
+        574,
+        0,
+        0,
+        0,
+        0,
+        0,
+        938,
+        0,
+        0,
+        1,
+        0,
+        1,
+        5,
+        14
+      ],
+      [
+        0,
+        0,
+        3431,
+        0,
+        4,
+        17,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        1693,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        0,
+        4172,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        5,
+        0,
+        17,
+        0,
+        3,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        14,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      [
+        1,
+        2,
+        0,
+        0,
+        3,
+        0,
+        0,
+        48404,
+        3,
+        0,
+        4,
+        0,
+        1,
+        0,
+        0
+      ],
+      [
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        0,
+        1389,
+        296,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        318,
+        0,
+        0,
+        0,
+        3,
+        0,
+        320,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      [
+        3,
+        0,
+        0,
+        15,
+        0,
+        0,
+        0,
+        70,
+        0,
+        0,
+        208,
+        0,
+        7,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        1352,
+        0,
+        0,
+        0,
+        268,
+        0,
+        0,
+        0
+      ],
+      [
+        8,
+        7,
+        0,
+        89,
+        0,
+        0,
+        0,
+        842,
+        31,
+        0,
+        3,
+        0,
+        221,
+        0,
+        0
+      ],
+      [
+        0,
+        4,
+        0,
+        0,
+        0,
+        0,
+        0,
+        248,
+        10,
+        0,
+        1,
+        29,
+        0,
+        1358,
+        10
+      ],
+      [
+        1,
+        3,
+        0,
+        0,
+        0,
+        0,
+        0,
+        412,
+        0,
+        0,
+        0,
+        0,
+        34,
+        0,
+        45
+      ]
+    ],
+    "class_names": [
+      "Backdoor",
+      "DDoS_HTTP",
+      "DDoS_ICMP",
+      "DDoS_TCP",
+      "DDoS_UDP",
+      "Fingerprinting",
+      "MITM",
+      "Normal",
+      "Password",
+      "Port_Scanning",
+      "Ransomware",
+      "SQL_injection",
+      "Uploading",
+      "Vulnerability_scanner",
+      "XSS"
+    ]
+  }
+}
